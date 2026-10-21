@@ -1,10 +1,10 @@
 #!/bin/bash
 # Install lidstay as a LaunchDaemon (asks for your password once).
-#   ./install.sh                  stay awake on charger and on battery above 25%
+#   ./install.sh                  stay awake on charger and on battery down to 20%
 #   ON_BATTERY=0 ./install.sh     stay awake only when plugged in
 #   MIN_BATTERY=40 ./install.sh   change the battery floor
 set -e
-[ "$(id -u)" = 0 ] || exec sudo ON_BATTERY="${ON_BATTERY:-1}" MIN_BATTERY="${MIN_BATTERY:-25}" "$0" "$@"
+[ "$(id -u)" = 0 ] || exec sudo ON_BATTERY="${ON_BATTERY:-1}" MIN_BATTERY="${MIN_BATTERY:-20}" "$0" "$@"
 
 DIR=$(cd "$(dirname "$0")" && pwd)
 LABEL=local.lidstay
@@ -23,7 +23,7 @@ cat > "$PLIST" <<PLIST
   <key>EnvironmentVariables</key>
   <dict>
     <key>ON_BATTERY</key><string>${ON_BATTERY:-1}</string>
-    <key>MIN_BATTERY</key><string>${MIN_BATTERY:-25}</string>
+    <key>MIN_BATTERY</key><string>${MIN_BATTERY:-20}</string>
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>

@@ -4,17 +4,18 @@
 #
 # Why disablesleep is set ahead of time: closing the lid sleeps the Mac within
 # a second, before any watcher could react, so the flag must already be on.
-# While it's on, the Mac also won't idle-sleep (the display still turns off).
+# That flag also stops normal idle sleep, so lidstay does idle sleep itself:
+# lid open, idle past the Energy "sleep" timer, nothing holding the Mac awake.
 #
 # Settings (env vars, set in the LaunchDaemon plist):
 #   ON_BATTERY=1    also stay awake on battery (0 = only when plugged in)
-#   MIN_BATTERY=25  on battery, let the Mac sleep again below this %
+#   MIN_BATTERY=20  on battery, let the Mac sleep again below this %
 #   INTERVAL=5      seconds between checks
 #   DRY_RUN=1       print the pmset commands instead of running them
-#   FAKE_LID / FAKE_SRC / FAKE_PCT / FAKE_SD   override readings (for testing)
+#   FAKE_LID / FAKE_SRC / FAKE_PCT / FAKE_SD / FAKE_IDLE / FAKE_BLOCK   override readings (for testing)
 
 ON_BATTERY=${ON_BATTERY:-1}
-MIN_BATTERY=${MIN_BATTERY:-25}
+MIN_BATTERY=${MIN_BATTERY:-20}
 INTERVAL=${INTERVAL:-5}
 STATE=${STATE:-/var/db/lidstay.lowpower}   # saved Low Power values while lid is shut
 
@@ -40,6 +41,21 @@ battery_pct() {
 }
 
 sleep_disabled() { [ -n "$FAKE_SD" ] && { echo "$FAKE_SD"; return; }; pmset -g | awk '/SleepDisabled/{print $2; exit}'; }
+
+idle_secs() {  # seconds since the last keyboard/mouse input
+  if [ -n "$FAKE_IDLE" ]; then echo "$FAKE_IDLE"; return; fi
+  ioreg -c IOHIDSystem | awk '/HIDIdleTime/ {print int($NF/1000000000); exit}'
+}
+
+sleep_timer_min() {  # the Energy "sleep" timer for this power source (0 = never)
+  local prof=b; [ "$1" = AC ] && prof=c
+  pmset -g custom | awk -v want=$prof '/^Battery/{s="b"} /^AC/{s="c"} s==want && $1=="sleep"{print $2; exit}'
+}
+
+idle_sleep_blocked() {  # an app is holding the Mac awake (Amphetamine, audio, caffeinate...)
+  if [ -n "$FAKE_BLOCK" ]; then [ "$FAKE_BLOCK" = 1 ]; return; fi
+  pmset -g assertions | awk '$1=="PreventUserIdleSystemSleep" || $1=="PreventSystemSleep" {n+=$2} END{exit !(n>0)}'
+}
 
 # Low Power Mode values for the battery (b) and charger (c) profiles, e.g. "0 0"
 lowpower_values() {
@@ -82,7 +98,7 @@ tick() {
   pct=$(battery_pct)
   if [ "$src" = AC ]; then
     want=1
-  elif [ "$ON_BATTERY" = 1 ] && [ "${pct:-0}" -gt "$MIN_BATTERY" ]; then
+  elif [ "$ON_BATTERY" = 1 ] && [ "${pct:-0}" -ge "$MIN_BATTERY" ]; then
     want=1
   fi
 
@@ -96,6 +112,15 @@ tick() {
     fi
   else
     lowpower_restore
+    local timer idle
+    timer=$(sleep_timer_min "$src")
+    idle=$(idle_secs)
+    if [ "$want" = 1 ] && [ "${timer:-0}" -gt 0 ] && [ "${idle:-0}" -ge $((timer * 60)) ] && ! idle_sleep_blocked; then
+      set_awake 0
+      log "idle ${idle}s (timer ${timer}m): sleeping now"
+      run pmset sleepnow
+      return
+    fi
   fi
   set_awake "$want"
 }
