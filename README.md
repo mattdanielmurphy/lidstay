@@ -9,8 +9,16 @@ Keeps a MacBook running with the lid closed, and turns on Low Power Mode while t
 
 ## Install / remove
 
+    git clone https://github.com/mattdanielmurphy/lidstay.git ~/projects/lidstay
+    cd ~/projects/lidstay
     ./install.sh          # asks for your password once
     ./uninstall.sh        # puts normal sleep back
+
+## Update
+
+    cd ~/projects/lidstay && git pull && ./install.sh
+
+`install.sh` copies the script into place and restarts the daemon, so re-running it is how updates go live. Settings (`ON_BATTERY`, `MIN_BATTERY`) are re-applied each time; pass them again if you changed them, e.g. `MIN_BATTERY=30 ./install.sh`.
 
 Check it: `pmset -g | grep -E 'SleepDisabled|lowpowermode'` and `tail /var/log/lidstay.log`.
 
