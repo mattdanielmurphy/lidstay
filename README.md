@@ -20,7 +20,14 @@ Keeps a MacBook running with the lid closed, and turns on Low Power Mode while t
     echo manual > /Users/Shared/lidstay/pause_until                       # until resumed
     mv /Users/Shared/lidstay/pause_until /Users/Shared/lidstay/pause_until.done  # resume
 
-Matt's Hammerspoon ⚙︎ menu has a "Lid" submenu that does this.
+## Menu bar icon (optional)
+
+`menubar/lidstay.10s.sh` is a [SwiftBar](https://swiftbar.app) plugin: a laptop icon (moon while paused) with Allow lid sleep for 1/2/4/8 hours, until you turn it back, or Keep awake.
+
+    brew install --cask swiftbar
+    open -a SwiftBar      # on first launch, choose ~/projects/lidstay/menubar as the Plugin Folder
+
+Pointing SwiftBar at the repo's `menubar` folder means `git pull` updates the menu too. (Matt's Hammerspoon ⚙︎ menu has the same items in a "Lid" submenu.)
 
 ## Update
 
