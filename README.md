@@ -22,12 +22,9 @@ Keeps a MacBook running with the lid closed, and turns on Low Power Mode while t
 
 ## Menu bar icon (optional)
 
-`menubar/lidstay.10s.sh` is a [SwiftBar](https://swiftbar.app) plugin: a laptop icon (moon while paused) with Allow lid sleep for 1/2/4/8 hours, until you turn it back, or Keep awake.
+`install.sh` also builds `menubar.swift` (with `swiftc` from Apple's Command Line Tools, no Xcode needed) and starts it at login: a laptop icon (moon while paused) with Allow lid sleep for 1/2/4/8 hours, until you turn it back, or Keep awake. Updating with `git pull && ./install.sh` rebuilds it.
 
-    brew install --cask swiftbar
-    open -a SwiftBar      # on first launch, choose ~/projects/lidstay/menubar as the Plugin Folder
-
-Pointing SwiftBar at the repo's `menubar` folder means `git pull` updates the menu too. (Matt's Hammerspoon ⚙︎ menu has the same items in a "Lid" submenu.)
+Skip it with `MENUBAR=0 ./install.sh`. It's skipped automatically where Matt's Hammerspoon ⚙︎ menu already has the same items in a "Lid" submenu.
 
 ## Update
 

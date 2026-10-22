@@ -50,6 +50,10 @@ launchctl bootstrap system "$PLIST"
 sleep 2
 # Menu bar icon (a per-user LaunchAgent). Skipped where Hammerspoon's Lid menu does the job.
 [ -z "$MENUBAR" ] && { [ -f "$UHOME/.hammerspoon/modules/lid_sleep.lua" ] && MENUBAR=0 || MENUBAR=1; }
+if [ "$MENUBAR" = 1 ] && ! sudo -u "$USR" xcrun --find swiftc >/dev/null 2>&1; then
+  echo "Menu bar icon skipped: needs Apple's Command Line Tools (run: xcode-select --install, then ./install.sh again)."
+  MENUBAR=0
+fi
 MLABEL=local.lidstay.menu
 MPLIST=$UHOME/Library/LaunchAgents/$MLABEL.plist
 UID_=$(id -u "$USR")
