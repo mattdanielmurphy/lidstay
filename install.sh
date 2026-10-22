@@ -61,7 +61,7 @@ MPLIST=$UHOME/Library/LaunchAgents/$MLABEL.plist
 UID_=$(id -u "$USR")
 if [ "$MENUBAR" = 1 ]; then
   mkdir -p "$DIR/tmp"
-  sudo -u "$USR" swiftc -O "$DIR/menubar.swift" -o "$DIR/tmp/lidstay-menu"
+  sudo -u "$USR" swiftc -O -parse-as-library "$DIR/menubar.swift" "$DIR/display.swift" -o "$DIR/tmp/lidstay-menu"
   install -m 755 "$DIR/tmp/lidstay-menu" /usr/local/bin/lidstay-menu
   sudo -u "$USR" mkdir -p "$UHOME/Library/LaunchAgents"
   cat > "$MPLIST" <<MPL
@@ -74,6 +74,8 @@ if [ "$MENUBAR" = 1 ]; then
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
   <key>LimitLoadToSessionType</key><string>Aqua</string>
+  <key>StandardOutPath</key><string>$UHOME/Library/Logs/lidstay-menu.log</string>
+  <key>StandardErrorPath</key><string>$UHOME/Library/Logs/lidstay-menu.log</string>
 </dict>
 </plist>
 MPL

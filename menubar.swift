@@ -1,6 +1,7 @@
 // lidstay menu bar icon: pause lidstay so closing the lid sleeps the Mac again,
 // for a few hours or until turned back on. Same options as Matt's Hammerspoon
 // "Lid" submenu. It only writes or moves the pause file; the root daemon reads it.
+// Also has the display re-sync items (hotkey, approved displays, schedule) from display.swift.
 // Built by install.sh with swiftc (comes with git's Command Line Tools).
 import AppKit
 
@@ -29,12 +30,14 @@ func resume() { try? FileManager.default.moveItem(atPath: pauseFile, toPath: pau
 
 class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    let display = DisplayResync(configDir: "~/Library/Application Support/lidstay")
 
     func applicationDidFinishLaunching(_ n: Notification) {
         let menu = NSMenu()
         menu.delegate = self
         item.menu = menu
         refreshIcon()
+        display.start()
         // A timed pause ends on its own; keep the icon honest
         Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in self.refreshIcon() }
     }
@@ -72,6 +75,8 @@ class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let awake = add(menu, "Keep awake with lid closed", tag: 0)
         if case .none = pause { awake.state = .on }
         menu.addItem(.separator())
+        display.addItems(to: menu)
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit lidstay icon", action: #selector(NSApplication.terminate(_:)), keyEquivalent: ""))
     }
 
@@ -93,8 +98,12 @@ class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 }
 
-let app = NSApplication.shared
-let delegate = App()
-app.delegate = delegate
-app.setActivationPolicy(.accessory)
-app.run()
+@main struct Main {  // built with display.swift, so no top-level code
+    static func main() {
+        let app = NSApplication.shared
+        let delegate = App()
+        app.delegate = delegate
+        app.setActivationPolicy(.accessory)
+        app.run()
+    }
+}

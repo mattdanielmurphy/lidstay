@@ -25,6 +25,22 @@ Keeps a MacBook running with the lid closed, and turns on Low Power Mode while t
 
 `install.sh` also builds `menubar.swift` (with `swiftc` from Apple's Command Line Tools, no Xcode needed) and starts it at login: a laptop icon (moon while paused) with Allow lid sleep for 1/2/4/8 hours, until you turn it back, or Keep awake. Updating with `git pull && ./install.sh` rebuilds it.
 
+### TV re-sync (in the same icon)
+
+With the lid shut and a TV on a USB-C hub, switching the TV off and on often leaves it on "no signal" until the lid is opened: the hub keeps telling macOS the TV is attached, so nothing re-sends the picture. The icon does what opening the lid does (display off for ~4 seconds, then back on), aimed at the moments the TV is likely stuck. Automatic, all only with the lid shut (switch each in Automatic re-sync):
+
+- **Display disappears** (adapters that report it): re-syncs every 10s until it's back, the lid opens, or 30 minutes pass.
+- **First touch after 10 min idle**: one re-sync. Reads the system idle timer, so it also works at the lock screen.
+- **After waking from sleep**: one re-sync.
+
+Backups:
+
+- **⌃⌥R** (Ctrl + Alt + R) from anywhere except the lock screen, or Re-sync display now in the menu.
+- Scheduled re-sync: e.g. `19:00 weekdays`.
+- Approved displays: tick the TVs re-syncs may touch; with none ticked, any external display counts.
+
+Settings in `~/Library/Application Support/lidstay/display.json` (hotkey, approved, schedule, `onDisconnect`/`onFirstTouch`/`onWake`, `idleMinutes`, `retrySeconds`, `sleepSeconds`), editable from the menu. Each re-sync and the trigger that fired it go to `~/Library/Logs/lidstay-menu.log`.
+
 Skip it with `MENUBAR=0 ./install.sh`. It's skipped automatically where Matt's Hammerspoon ⚙︎ menu already has the same items in a "Lid" submenu.
 
 ## Update
