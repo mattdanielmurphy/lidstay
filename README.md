@@ -5,7 +5,8 @@ Keeps a MacBook running with the lid closed, and turns on Low Power Mode while t
 - Plugged in: always stays awake with the lid closed.
 - On battery: stays awake down to 20%; below that, closing the lid sleeps it (`ON_BATTERY=0` to only stay awake when plugged in).
 - Lid closed: Low Power Mode on. Lid open: your previous Low Power setting comes back.
-- Idle sleep still works: blocking lid-close sleep (`pmset disablesleep`, the flag Amphetamine uses) also blocks normal idle sleep, so lidstay does it itself. Lid open + idle past your Energy "sleep" timer + no app holding the Mac awake = sleep.
+- Lid open: also stays awake (no idle sleep); the display still sleeps on its timer. `IDLE_SLEEP=1 ./install.sh` brings idle sleep back: lid open + idle past your Energy "sleep" timer + no app holding the Mac awake = sleep.
+- Doesn't depend on Hammerspoon or any app: it's a root LaunchDaemon (`KeepAlive`), so reloads, crashes and logouts don't touch it. Hammerspoon's Lid menu only writes the pause file.
 
 ## Install / remove
 
@@ -30,7 +31,7 @@ Skip it with `MENUBAR=0 ./install.sh`. It's skipped automatically where Matt's H
 
     cd ~/projects/lidstay && git pull && ./install.sh
 
-`install.sh` copies the script into place and restarts the daemon, so re-running it is how updates go live. Settings (`ON_BATTERY`, `MIN_BATTERY`) are re-applied each time; pass them again if you changed them, e.g. `MIN_BATTERY=30 ./install.sh`.
+`install.sh` copies the script into place and restarts the daemon, so re-running it is how updates go live. Settings (`ON_BATTERY`, `MIN_BATTERY`, `IDLE_SLEEP`) are re-applied each time; pass them again if you changed them, e.g. `MIN_BATTERY=30 ./install.sh`.
 
 Check it: `pmset -g | grep -E 'SleepDisabled|lowpowermode'` and `tail /var/log/lidstay.log`.
 

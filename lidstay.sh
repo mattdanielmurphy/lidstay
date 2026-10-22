@@ -4,12 +4,14 @@
 #
 # Why disablesleep is set ahead of time: closing the lid sleeps the Mac within
 # a second, before any watcher could react, so the flag must already be on.
-# That flag also stops normal idle sleep, so lidstay does idle sleep itself:
-# lid open, idle past the Energy "sleep" timer, nothing holding the Mac awake.
+# That flag also stops normal idle sleep, so with the lid open the Mac stays
+# awake too (the default). IDLE_SLEEP=1 brings idle sleep back: lid open, idle
+# past the Energy "sleep" timer, nothing holding the Mac awake.
 #
 # Settings (env vars, set in the LaunchDaemon plist):
 #   ON_BATTERY=1    also stay awake on battery (0 = only when plugged in)
 #   MIN_BATTERY=20  on battery, let the Mac sleep again below this %
+#   IDLE_SLEEP=0    1 = still sleep when idle with the lid open (0 = never)
 #   INTERVAL=5      seconds between checks
 #   DRY_RUN=1       print the pmset commands instead of running them
 #
@@ -20,6 +22,7 @@
 
 ON_BATTERY=${ON_BATTERY:-1}
 MIN_BATTERY=${MIN_BATTERY:-20}
+IDLE_SLEEP=${IDLE_SLEEP:-0}
 INTERVAL=${INTERVAL:-5}
 STATE=${STATE:-/var/db/lidstay.lowpower}   # saved Low Power values while lid is shut
 PAUSE_FILE=${PAUSE_FILE:-/Users/Shared/lidstay/pause_until}
@@ -137,7 +140,7 @@ tick() {
     local timer idle
     timer=$(sleep_timer_min "$src")
     idle=$(idle_secs)
-    if [ "$want" = 1 ] && [ "${timer:-0}" -gt 0 ] && [ "${idle:-0}" -ge $((timer * 60)) ] && ! idle_sleep_blocked; then
+    if [ "$IDLE_SLEEP" = 1 ] && [ "$want" = 1 ] && [ "${timer:-0}" -gt 0 ] && [ "${idle:-0}" -ge $((timer * 60)) ] && ! idle_sleep_blocked; then
       set_awake 0
       log "idle ${idle}s (timer ${timer}m): sleeping now"
       run pmset sleepnow
@@ -149,7 +152,7 @@ tick() {
 
 if [ "${1:-}" = once ]; then tick; exit 0; fi
 
-log "started (ON_BATTERY=$ON_BATTERY MIN_BATTERY=$MIN_BATTERY)"
+log "started (ON_BATTERY=$ON_BATTERY MIN_BATTERY=$MIN_BATTERY IDLE_SLEEP=$IDLE_SLEEP)"
 while true; do
   tick
   sleep "$INTERVAL" & wait $!
