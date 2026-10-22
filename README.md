@@ -14,6 +14,14 @@ Keeps a MacBook running with the lid closed, and turns on Low Power Mode while t
     ./install.sh          # asks for your password once
     ./uninstall.sh        # puts normal sleep back
 
+## Pause (let the lid sleep again)
+
+    echo $(( $(date +%s) + 2*3600 )) > /Users/Shared/lidstay/pause_until   # 2 hours
+    echo manual > /Users/Shared/lidstay/pause_until                       # until resumed
+    mv /Users/Shared/lidstay/pause_until /Users/Shared/lidstay/pause_until.done  # resume
+
+Matt's Hammerspoon ⚙︎ menu has a "Lid" submenu that does this.
+
 ## Update
 
     cd ~/projects/lidstay && git pull && ./install.sh
