@@ -8,4 +8,8 @@ pmset -a disablesleep 0
 TRASH="/Users/${SUDO_USER:-$(stat -f %Su /dev/console)}/.Trash"
 mv /Library/LaunchDaemons/$LABEL.plist "$TRASH/" 2>/dev/null || true
 mv /usr/local/bin/lidstay "$TRASH/lidstay.sh" 2>/dev/null || true
+USR=${SUDO_USER:-$(stat -f %Su /dev/console)}
+launchctl bootout gui/$(id -u "$USR")/local.lidstay.menu 2>/dev/null || true
+mv "/Users/$USR/Library/LaunchAgents/local.lidstay.menu.plist" "$TRASH/" 2>/dev/null || true
+mv /usr/local/bin/lidstay-menu "$TRASH/" 2>/dev/null || true
 echo "lidstay removed. SleepDisabled is now $(pmset -g | awk '/SleepDisabled/{print $2}')."
