@@ -13,6 +13,10 @@ PLIST=/Library/LaunchDaemons/$LABEL.plist
 mkdir -p /usr/local/bin
 install -m 755 "$DIR/lidstay.sh" /usr/local/bin/lidstay
 
+# Pause folder the logged-in user can write (Hammerspoon menu / pause file)
+mkdir -p /Users/Shared/lidstay
+chown "${SUDO_USER:-$(stat -f %Su /dev/console)}" /Users/Shared/lidstay
+
 cat > "$PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

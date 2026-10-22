@@ -12,12 +12,17 @@
 #   MIN_BATTERY=20  on battery, let the Mac sleep again below this %
 #   INTERVAL=5      seconds between checks
 #   DRY_RUN=1       print the pmset commands instead of running them
+#
+# Pause (normal sleep, as if lidstay weren't installed): write to $PAUSE_FILE
+#   an epoch time to pause until then, or "manual" to pause until the file is removed.
+#   Hammerspoon's menu writes it; any user can.
 #   FAKE_LID / FAKE_SRC / FAKE_PCT / FAKE_SD / FAKE_IDLE / FAKE_BLOCK   override readings (for testing)
 
 ON_BATTERY=${ON_BATTERY:-1}
 MIN_BATTERY=${MIN_BATTERY:-20}
 INTERVAL=${INTERVAL:-5}
 STATE=${STATE:-/var/db/lidstay.lowpower}   # saved Low Power values while lid is shut
+PAUSE_FILE=${PAUSE_FILE:-/Users/Shared/lidstay/pause_until}
 
 log() { echo "$(date '+%F %T') $*"; }
 
@@ -92,7 +97,24 @@ cleanup() {
 }
 trap cleanup TERM INT
 
+paused() {  # true while a pause is in effect; clears an expired one
+  [ -f "$PAUSE_FILE" ] || return 1
+  local until; until=$(head -c 40 "$PAUSE_FILE" | tr -d '[:space:]')
+  [ "$until" = manual ] && return 0
+  if [ -n "$until" ] && [ "$until" -eq "$until" ] 2>/dev/null && [ "$until" -gt "$(date +%s)" ]; then
+    return 0
+  fi
+  mv "$PAUSE_FILE" "$PAUSE_FILE.done" 2>/dev/null
+  log "pause over: back to staying awake"
+  return 1
+}
+
 tick() {
+  if paused; then
+    lowpower_restore
+    set_awake 0
+    return
+  fi
   local src pct want=0
   src=$(power_source)
   pct=$(battery_pct)
