@@ -4,7 +4,7 @@ Keeps a MacBook running with the lid closed, and turns on Low Power Mode while t
 
 - Plugged in: always stays awake with the lid closed.
 - On battery: stays awake down to 20%; below that, closing the lid sleeps it (`ON_BATTERY=0` to only stay awake when plugged in).
-- Lid closed: Low Power Mode on. Lid open: your previous Low Power setting comes back.
+- Lid closed: the screen turns off (it otherwise stays lit behind the lid) and Low Power Mode comes on. Lid open: your previous Low Power setting comes back.
 - Lid open: also stays awake (no idle sleep); the display still sleeps on its timer. `IDLE_SLEEP=1 ./install.sh` brings idle sleep back: lid open + idle past your Energy "sleep" timer + no app holding the Mac awake = sleep.
 - Doesn't depend on Hammerspoon or any app: it's a root LaunchDaemon (`KeepAlive`), so reloads, crashes and logouts don't touch it. Hammerspoon's Lid menu only writes the pause file.
 

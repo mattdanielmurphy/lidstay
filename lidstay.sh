@@ -18,7 +18,13 @@
 # Pause (normal sleep, as if lidstay weren't installed): write to $PAUSE_FILE
 #   an epoch time to pause until then, or "manual" to pause until the file is removed.
 #   Hammerspoon's menu writes it; any user can.
-#   FAKE_LID / FAKE_SRC / FAKE_PCT / FAKE_SD / FAKE_IDLE / FAKE_BLOCK   override readings (for testing)
+#   FAKE_LID / FAKE_SRC / FAKE_PCT / FAKE_SD / FAKE_IDLE / FAKE_BLOCK / FAKE_DISP   override readings (for testing)
+#
+# Screen: with sleep disabled the built-in screen stays lit behind a closed lid
+# (macOS only turns it off as part of sleeping). So while the lid is shut the
+# display is put to sleep, and again whenever something wakes it. Opening the
+# lid wakes it at the old brightness. (Setting brightness directly doesn't work
+# here: DisplayServices ignores the built-in panel while the lid is closed.)
 
 ON_BATTERY=${ON_BATTERY:-1}
 MIN_BATTERY=${MIN_BATTERY:-20}
@@ -63,6 +69,17 @@ sleep_timer_min() {  # the Energy "sleep" timer for this power source (0 = never
 idle_sleep_blocked() {  # an app is holding the Mac awake (Amphetamine, audio, caffeinate...)
   if [ -n "$FAKE_BLOCK" ]; then [ "$FAKE_BLOCK" = 1 ]; return; fi
   pmset -g assertions | awk '$1=="PreventUserIdleSystemSleep" || $1=="PreventSystemSleep" {n+=$2} END{exit !(n>0)}'
+}
+
+display_on() {  # powerd holds this assertion exactly while a display is on
+  if [ -n "$FAKE_DISP" ]; then [ "$FAKE_DISP" = 1 ]; return; fi
+  pmset -g assertions | grep -q "Prevent sleep while display is on"
+}
+
+screen_off() {
+  display_on || return
+  run pmset displaysleepnow
+  log "lid closed: screen off"
 }
 
 # Low Power Mode values for the battery (b) and charger (c) profiles, e.g. "0 0"
@@ -129,6 +146,7 @@ tick() {
 
   if lid_closed; then
     lowpower_on
+    screen_off
     if [ "$want" = 0 ] && [ "$(sleep_disabled)" = 1 ]; then
       set_awake 0
       log "lid closed and $src at ${pct}%: sleeping now"
