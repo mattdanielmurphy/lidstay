@@ -27,12 +27,12 @@ Keeps a MacBook running with the lid closed, and turns on Low Power Mode while t
 
 Skip it with `MENUBAR=0 ./install.sh`. It's skipped automatically where Matt's Hammerspoon ⚙︎ menu already has the same items in a "Lid" submenu.
 
-## Sony TV: on when you use the Mac, push up to switch
+## Sony TV: on when you use the Mac, push up through the portal to switch
 
 `tv.py` talks to a Sony Bravia (tested on a KD-43X85K) over the network, and Hammerspoon's **TV Follow** module (`~/.hammerspoon/modules/tv_follow.lua`) decides when:
 
 1. **You use the Mac and the TV is off.** Your first touch after 10 idle minutes, or waking/unlocking the Mac, turns an off TV on, on the Mac's input. This is the only automatic switch: a TV that's on, showing anything else (an app, Settings, another HDMI), is never pulled back by itself.
-2. **Push up to switch.** The TV sits above the laptop. While it isn't showing the Mac, the cursor stops at the laptop's top edge instead of vanishing onto it, and a bar at the top says "Keep pushing to switch the TV to your Mac". Keep pushing until it fills and the TV switches (turning on if needed); stop and it fades. Only pushes from the laptop screen count: a cursor left on the TV is moved down to the laptop. There are at least 8 s between switches.
+2. **Push up through the portal.** The TV sits above the laptop. While it isn't showing the Mac, nearing the top edge shows a faint glow behind the menu bar (the menu bar stays usable). Push on and the cursor goes onto the dark TV, so it disappears, and the glow widens the further you go; pull back and it retreats. Go deep enough and the TV switches (turning on if needed) with your cursor already up there. A small slip past the edge snaps back when you move down, a cursor left up there comes back after a moment, and clicks up there are ignored. A cursor already on the TV when it stops showing the Mac is moved down to the laptop. At least 8 s between switches. Every feel knob is live in Tweaks → TV Follow.
 3. **Windows leave the TV.** While the TV is off or on another input (and the laptop screen is open), windows on the TV move to the same spot on the laptop screen, and new ones that open on the TV follow. When the TV shows the Mac again, each one goes back where it was, unless you've moved it since. The list survives a Hammerspoon reload. The menu bar and Dock stay on the TV.
 4. **Nothing is guessed when the TV can't be reached:** windows stay where they are.
 
