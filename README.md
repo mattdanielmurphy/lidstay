@@ -40,7 +40,7 @@ All timings are in the Tweaks panel (⌃⌥⌘T → TV Follow).
 
 ### One-time setup on the TV (needed to switch inputs)
 
-Without this, the Mac can only wake the TV and guess its input. On the TV: **Settings → Network & Internet → Home network setup → IP control**:
+Without this, the Mac can only wake the TV, and it can't tell which input is showing, so windows stay put. On the TV: **Settings → Network & Internet → Home network setup → IP control**:
 
 - **Authentication**: "Normal and Pre-Shared Key".
 - **Pre-Shared Key**: any word or number you like.

@@ -87,7 +87,7 @@ class TV:
             return None
 
     def current_input(self):
-        """('mac'|'other'|'unknown', how). Exact with the PSK; a best guess without it."""
+        """('mac'|'other'|'unknown', how). Needs the PSK; unknown without it."""
         want = f"extInput:hdmi?port={self.port}"
         if self.key:
             try:
@@ -101,19 +101,9 @@ class TV:
                 return "other", "playing"
             if err not in (403, 401):
                 return "unknown", f"error {err}"
-        # No key (or it was refused): the inputs list marks the active input with status "true".
-        try:
-            r = self.call("avContent", "getCurrentExternalInputsStatus", version="1.1")["result"][0]
-        except (OSError, KeyError, IndexError, TypeError, ValueError):
-            return "unknown", "unreachable"
-        for i in r:
-            if i.get("uri") == want:
-                s = i.get("status")
-                if s == "true":
-                    return "mac", "inputs-list"
-                if s == "false":
-                    return "other", "inputs-list"
-        return "unknown", "inputs-list"
+        # No key (or it was refused): unknown. The inputs list's status "true" only means the
+        # port has a signal (seen 2026-11-14: "true" on HDMI 3 while an app was showing).
+        return "unknown", "needs BRAVIA_PSK"
 
     def status(self):
         p = self.power()
