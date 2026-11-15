@@ -27,6 +27,33 @@ Keeps a MacBook running with the lid closed, and turns on Low Power Mode while t
 
 Skip it with `MENUBAR=0 ./install.sh`. It's skipped automatically where Matt's Hammerspoon ⚙︎ menu already has the same items in a "Lid" submenu.
 
+## Sony TV: on when you're back, input follows the cursor
+
+`tv.py` talks to a Sony Bravia (tested on a KD-43X85K) over the network, and Hammerspoon's **TV Follow** module (`~/.hammerspoon/modules/tv_follow.lua`) decides when:
+
+1. **Back from idle.** Your first touch after 10 idle minutes, or waking/unlocking the Mac, turns an off TV on, on the Mac's input. A TV that's on and showing something else is left alone (you might be watching), unless you switch on `idle.fromOtherInput`.
+2. **Cursor to the TV edge.** While the TV is off or on another input, push the cursor off the laptop screen onto the TV's side and hold it there for 0.4 s: the TV turns on if needed and switches to the Mac. A quick flick doesn't count, and there are at least 8 s between switches.
+3. **Windows leave the TV.** While the TV is off or on another input (and the laptop screen is open), windows on the TV move to the same spot on the laptop screen, and new ones that open on the TV follow. When the TV shows the Mac again, each one goes back where it was, unless you've moved it since. The list survives a Hammerspoon reload. The menu bar and Dock stay on the TV.
+4. **Nothing is guessed when the TV can't be reached:** windows stay where they are.
+
+All timings are in the Tweaks panel (⌃⌥⌘T → TV Follow).
+
+### One-time setup on the TV (needed to switch inputs)
+
+Without this, the Mac can only wake the TV and guess its input. On the TV: **Settings → Network & Internet → Home network setup → IP control**:
+
+- **Authentication**: "Normal and Pre-Shared Key".
+- **Pre-Shared Key**: any word or number you like.
+- **Remote start**: On (lets the Mac turn the TV on from standby).
+
+Then put the same key in this folder's `.env` as `BRAVIA_PSK=...` (the file isn't committed) and check it with `./tv.py check`.
+
+### Pieces
+
+- `tv.py status | mac | on | input N | check`: use it by hand too (`./tv.py mac` = TV on, Mac's input).
+- `tv.py serve` runs as the user LaunchAgent `local.lidstay.tv` (`./tv-install.sh`, also run by `install.sh`; `TV=0` skips it), on 127.0.0.1:47613. It exists because macOS's Local Network privacy blocks Hammerspoon and Homebrew's Python from the TV, while Apple's `/usr/bin/python3` in a LaunchAgent is allowed. Log: `~/Library/Logs/lidstay-tv.log`.
+- Different TV address or HDMI port: `BRAVIA_IP=192.168.1.20 BRAVIA_MAC_PORT=2 ./tv-install.sh`. The TV's address can change if your router hands it a new one; reserve it in the router to be safe.
+
 ## Update
 
     cd ~/projects/lidstay && git pull && ./install.sh

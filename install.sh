@@ -6,8 +6,9 @@
 #   IDLE_SLEEP=1 ./install.sh     still sleep when idle with the lid open (default: never)
 #   MENUBAR=0 ./install.sh        skip the menu bar icon (default: on, unless the
 #                                 Hammerspoon "Lid" menu is set up)
+#   TV=0 ./install.sh             skip the Sony TV server (tv-install.sh; default: on)
 set -e
-[ "$(id -u)" = 0 ] || exec sudo ON_BATTERY="${ON_BATTERY:-1}" MIN_BATTERY="${MIN_BATTERY:-20}" IDLE_SLEEP="${IDLE_SLEEP:-0}" MENUBAR="${MENUBAR:-}" "$0" "$@"
+[ "$(id -u)" = 0 ] || exec sudo ON_BATTERY="${ON_BATTERY:-1}" MIN_BATTERY="${MIN_BATTERY:-20}" IDLE_SLEEP="${IDLE_SLEEP:-0}" MENUBAR="${MENUBAR:-}" TV="${TV:-1}" "$0" "$@"
 
 DIR=$(cd "$(dirname "$0")" && pwd)
 LABEL=local.lidstay
@@ -86,6 +87,9 @@ elif [ -f "$MPLIST" ]; then
   launchctl bootout gui/$UID_/$MLABEL 2>/dev/null || true
   mv "$MPLIST" "$UHOME/.Trash/" 2>/dev/null || true
 fi
+
+# Sony TV server (user LaunchAgent; Hammerspoon's TV Follow talks to it)
+[ "${TV:-1}" = 1 ] && sudo -u "$USR" HOME="$UHOME" "$DIR/tv-install.sh" || true
 
 echo "lidstay installed. Status:"
 pmset -g | grep -E 'SleepDisabled|lowpowermode'

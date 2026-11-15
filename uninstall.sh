@@ -12,4 +12,5 @@ USR=${SUDO_USER:-$(stat -f %Su /dev/console)}
 launchctl bootout gui/$(id -u "$USR")/local.lidstay.menu 2>/dev/null || true
 mv "/Users/$USR/Library/LaunchAgents/local.lidstay.menu.plist" "$TRASH/" 2>/dev/null || true
 mv /usr/local/bin/lidstay-menu "$TRASH/" 2>/dev/null || true
+sudo -u "$USR" HOME="/Users/$USR" "$(cd "$(dirname "$0")" && pwd)/tv-install.sh" remove || true
 echo "lidstay removed. SleepDisabled is now $(pmset -g | awk '/SleepDisabled/{print $2}')."
