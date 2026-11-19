@@ -3,7 +3,7 @@
 set -e
 [ "$(id -u)" = 0 ] || exec sudo "$0" "$@"
 LABEL=local.lidstay
-launchctl bootout system/$LABEL 2>/dev/null || true   # lidstay restores settings on exit
+launchctl bootout system/$LABEL 2>/dev/null || true   # lidstay turns Low Power Mode off on exit
 pmset -a disablesleep 0
 TRASH="/Users/${SUDO_USER:-$(stat -f %Su /dev/console)}/.Trash"
 mv /Library/LaunchDaemons/$LABEL.plist "$TRASH/" 2>/dev/null || true

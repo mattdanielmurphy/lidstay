@@ -3,12 +3,13 @@
 #   ./install.sh                  stay awake on charger and on battery down to 20%
 #   ON_BATTERY=0 ./install.sh     stay awake only when plugged in
 #   MIN_BATTERY=40 ./install.sh   change the battery floor
+#   LOW_BATTERY=30 ./install.sh   Low Power Mode on battery below this % (default 20)
 #   IDLE_SLEEP=1 ./install.sh     still sleep when idle with the lid open (default: never)
 #   MENUBAR=0 ./install.sh        skip the menu bar icon (default: on, unless the
 #                                 Hammerspoon "Lid" menu is set up)
 #   TV=0 ./install.sh             skip the Sony TV server (tv-install.sh; default: on)
 set -e
-[ "$(id -u)" = 0 ] || exec sudo ON_BATTERY="${ON_BATTERY:-1}" MIN_BATTERY="${MIN_BATTERY:-20}" IDLE_SLEEP="${IDLE_SLEEP:-0}" MENUBAR="${MENUBAR:-}" TV="${TV:-1}" "$0" "$@"
+[ "$(id -u)" = 0 ] || exec sudo ON_BATTERY="${ON_BATTERY:-1}" MIN_BATTERY="${MIN_BATTERY:-20}" LOW_BATTERY="${LOW_BATTERY:-20}" IDLE_SLEEP="${IDLE_SLEEP:-0}" MENUBAR="${MENUBAR:-}" TV="${TV:-1}" "$0" "$@"
 
 DIR=$(cd "$(dirname "$0")" && pwd)
 LABEL=local.lidstay
@@ -35,6 +36,7 @@ cat > "$PLIST" <<PLIST
   <dict>
     <key>ON_BATTERY</key><string>${ON_BATTERY:-1}</string>
     <key>MIN_BATTERY</key><string>${MIN_BATTERY:-20}</string>
+    <key>LOW_BATTERY</key><string>${LOW_BATTERY:-20}</string>
     <key>IDLE_SLEEP</key><string>${IDLE_SLEEP:-0}</string>
   </dict>
   <key>RunAtLoad</key><true/>

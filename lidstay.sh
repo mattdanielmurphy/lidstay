@@ -1,6 +1,12 @@
 #!/bin/bash
-# lidstay: keep a MacBook awake with the lid closed, and switch on Low Power
-# Mode (battery profile only) while the lid is shut. Runs as root from a LaunchDaemon (pmset needs root).
+# lidstay: keep a MacBook awake with the lid closed, and run Low Power Mode by
+# one rule. Runs as root from a LaunchDaemon (pmset needs root).
+#
+# Low Power Mode rule (Matt, 2026-11-19): ON while the lid is closed (charger
+# or battery) or while on battery below LOW_BATTERY%; OFF in every other case,
+# including right after plugging in with the lid open. lidstay owns the
+# setting: each tick it writes both profiles (pmset -a) if they differ from the
+# rule, so a failed write (e.g. during shutdown) is fixed on the next tick.
 #
 # Why disablesleep is set ahead of time: closing the lid sleeps the Mac within
 # a second, before any watcher could react, so the flag must already be on.
@@ -11,6 +17,7 @@
 # Settings (env vars, set in the LaunchDaemon plist):
 #   ON_BATTERY=1    also stay awake on battery (0 = only when plugged in)
 #   MIN_BATTERY=20  on battery, let the Mac sleep again below this %
+#   LOW_BATTERY=20  on battery, Low Power Mode comes on below this %
 #   IDLE_SLEEP=0    1 = still sleep when idle with the lid open (0 = never)
 #   INTERVAL=5      seconds between checks
 #   DRY_RUN=1       print the pmset commands instead of running them
@@ -18,7 +25,7 @@
 # Pause (normal sleep, as if lidstay weren't installed): write to $PAUSE_FILE
 #   an epoch time to pause until then, or "manual" to pause until the file is removed.
 #   Hammerspoon's menu writes it; any user can.
-#   FAKE_LID / FAKE_SRC / FAKE_PCT / FAKE_SD / FAKE_IDLE / FAKE_BLOCK / FAKE_DISP / FAKE_LPM   override readings (for testing)
+#   FAKE_LID / FAKE_SRC / FAKE_PCT / FAKE_SD / FAKE_IDLE / FAKE_BLOCK / FAKE_DISP / FAKE_LPM ("b c")   override readings (for testing)
 #
 # Screen: with sleep disabled the built-in screen stays lit behind a closed lid
 # (macOS only turns it off as part of sleeping). So while the lid is shut the
@@ -28,9 +35,9 @@
 
 ON_BATTERY=${ON_BATTERY:-1}
 MIN_BATTERY=${MIN_BATTERY:-20}
+LOW_BATTERY=${LOW_BATTERY:-20}
 IDLE_SLEEP=${IDLE_SLEEP:-0}
 INTERVAL=${INTERVAL:-5}
-STATE=${STATE:-/var/db/lidstay.lowpower}   # saved Low Power values while lid is shut
 PAUSE_FILE=${PAUSE_FILE:-/Users/Shared/lidstay/pause_until}
 
 log() { echo "$(date '+%F %T') $*"; }
@@ -82,34 +89,23 @@ screen_off() {
   log "lid closed: screen off"
 }
 
-# Low Power Mode is only ever switched on for the battery profile (pmset -b).
-# The charger profile is never touched, so plugging in always ends it.
-# (It used to be pmset -a, and a restore that failed during the 04:30 nightly
-# reboot left both profiles on: System Settings showed "Always", 2026-11-19.)
-lowpower_battery() {  # current battery-profile value, 0 or 1
+# Low Power Mode values for the battery (b) and charger (c) profiles, e.g. "0 0"
+lowpower_values() {
   if [ -n "$FAKE_LPM" ]; then echo "$FAKE_LPM"; return; fi
-  pmset -g custom | awk '/^Battery/{s="b"} /^AC/{s="c"} s=="b" && $1=="lowpowermode"{print $2+0; exit}'
+  pmset -g custom | awk '/^Battery/{s="b"} /^AC/{s="c"} $1=="lowpowermode"{v[s]=$2} END{print v["b"]+0, v["c"]+0}'
 }
 
-lowpower_on() {
-  [ -f "$STATE" ] && return
-  lowpower_battery > "$STATE"
-  run pmset -b lowpowermode 1
-  log "lid closed: Low Power Mode on for battery only (saved battery $(cat "$STATE"))"
+lowpower_want() {  # $1 = AC/Battery, $2 = battery %, $3 = 1 if lid closed; prints 1/0
+  if [ "$3" = 1 ]; then echo 1
+  elif [ "$1" = Battery ] && [ "${2:-100}" -lt "$LOW_BATTERY" ]; then echo 1
+  else echo 0; fi
 }
 
-lowpower_restore() {
-  [ -f "$STATE" ] || return
-  local b; read -r b _ < "$STATE"   # older files hold "battery charger"; charger is ignored
-  b=${b:-0}
-  run pmset -b lowpowermode "$b" 2>/dev/null
-  # Keep the saved value until the write has really landed: pmset can fail
-  # while the Mac is shutting down, and the next run must still restore it.
-  if [ "${DRY_RUN:-0}" != 1 ] && [ "$(lowpower_battery)" != "$b" ]; then
-    return
-  fi
-  mv "$STATE" "$STATE.last"
-  log "Low Power Mode restored (battery $b)"
+lowpower_apply() {  # $1 = 1/0, $2 = reason for the log
+  local b c; read -r b c <<< "$(lowpower_values)"
+  [ "$b" = "$1" ] && [ "$c" = "$1" ] && return
+  run pmset -a lowpowermode "$1" 2>/dev/null || return   # retried next tick
+  log "Low Power Mode $([ "$1" = 1 ] && echo on || echo off) ($2)"
 }
 
 set_awake() {  # $1 = 1 to keep awake, 0 to allow normal sleep
@@ -120,7 +116,7 @@ set_awake() {  # $1 = 1 to keep awake, 0 to allow normal sleep
 
 cleanup() {
   set_awake 0
-  lowpower_restore
+  lowpower_apply 0 "lidstay stopped"
   log "stopped"
   exit 0
 }
@@ -139,22 +135,24 @@ paused() {  # true while a pause is in effect; clears an expired one
 }
 
 tick() {
+  local src pct lid=0 want=0
+  src=$(power_source)
+  pct=$(battery_pct)
+  lid_closed && lid=1
+  # Low Power Mode follows its rule even while paused
+  lowpower_apply "$(lowpower_want "$src" "$pct" "$lid")" \
+    "$([ "$lid" = 1 ] && echo "lid closed" || echo "lid open"), $src ${pct}%"
   if paused; then
-    lowpower_restore
     set_awake 0
     return
   fi
-  local src pct want=0
-  src=$(power_source)
-  pct=$(battery_pct)
   if [ "$src" = AC ]; then
     want=1
   elif [ "$ON_BATTERY" = 1 ] && [ "${pct:-0}" -ge "$MIN_BATTERY" ]; then
     want=1
   fi
 
-  if lid_closed; then
-    lowpower_on
+  if [ "$lid" = 1 ]; then
     screen_off
     if [ "$want" = 0 ] && [ "$(sleep_disabled)" = 1 ]; then
       set_awake 0
@@ -163,7 +161,6 @@ tick() {
       return
     fi
   else
-    lowpower_restore
     local timer idle
     timer=$(sleep_timer_min "$src")
     idle=$(idle_secs)
@@ -179,7 +176,7 @@ tick() {
 
 if [ "${1:-}" = once ]; then tick; exit 0; fi
 
-log "started (ON_BATTERY=$ON_BATTERY MIN_BATTERY=$MIN_BATTERY IDLE_SLEEP=$IDLE_SLEEP)"
+log "started (ON_BATTERY=$ON_BATTERY MIN_BATTERY=$MIN_BATTERY LOW_BATTERY=$LOW_BATTERY IDLE_SLEEP=$IDLE_SLEEP)"
 while true; do
   tick
   sleep "$INTERVAL" & wait $!
