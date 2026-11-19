@@ -1,6 +1,6 @@
 #!/bin/bash
 # lidstay: keep a MacBook awake with the lid closed, and switch on Low Power
-# Mode while the lid is shut. Runs as root from a LaunchDaemon (pmset needs root).
+# Mode (battery profile only) while the lid is shut. Runs as root from a LaunchDaemon (pmset needs root).
 #
 # Why disablesleep is set ahead of time: closing the lid sleeps the Mac within
 # a second, before any watcher could react, so the flag must already be on.
@@ -18,7 +18,7 @@
 # Pause (normal sleep, as if lidstay weren't installed): write to $PAUSE_FILE
 #   an epoch time to pause until then, or "manual" to pause until the file is removed.
 #   Hammerspoon's menu writes it; any user can.
-#   FAKE_LID / FAKE_SRC / FAKE_PCT / FAKE_SD / FAKE_IDLE / FAKE_BLOCK / FAKE_DISP   override readings (for testing)
+#   FAKE_LID / FAKE_SRC / FAKE_PCT / FAKE_SD / FAKE_IDLE / FAKE_BLOCK / FAKE_DISP / FAKE_LPM   override readings (for testing)
 #
 # Screen: with sleep disabled the built-in screen stays lit behind a closed lid
 # (macOS only turns it off as part of sleeping). So while the lid is shut the
@@ -82,25 +82,34 @@ screen_off() {
   log "lid closed: screen off"
 }
 
-# Low Power Mode values for the battery (b) and charger (c) profiles, e.g. "0 0"
-lowpower_values() {
-  pmset -g custom | awk '/^Battery/{s="b"} /^AC/{s="c"} /lowpowermode/{v[s]=$2} END{print v["b"]+0, v["c"]+0}'
+# Low Power Mode is only ever switched on for the battery profile (pmset -b).
+# The charger profile is never touched, so plugging in always ends it.
+# (It used to be pmset -a, and a restore that failed during the 04:30 nightly
+# reboot left both profiles on: System Settings showed "Always", 2026-11-19.)
+lowpower_battery() {  # current battery-profile value, 0 or 1
+  if [ -n "$FAKE_LPM" ]; then echo "$FAKE_LPM"; return; fi
+  pmset -g custom | awk '/^Battery/{s="b"} /^AC/{s="c"} s=="b" && $1=="lowpowermode"{print $2+0; exit}'
 }
 
 lowpower_on() {
   [ -f "$STATE" ] && return
-  lowpower_values > "$STATE"
-  run pmset -a lowpowermode 1
-  log "lid closed: Low Power Mode on (saved $(cat "$STATE"))"
+  lowpower_battery > "$STATE"
+  run pmset -b lowpowermode 1
+  log "lid closed: Low Power Mode on for battery only (saved battery $(cat "$STATE"))"
 }
 
 lowpower_restore() {
   [ -f "$STATE" ] || return
-  read -r b c < "$STATE"
-  run pmset -b lowpowermode "${b:-0}"
-  run pmset -c lowpowermode "${c:-0}"
+  local b; read -r b _ < "$STATE"   # older files hold "battery charger"; charger is ignored
+  b=${b:-0}
+  run pmset -b lowpowermode "$b" 2>/dev/null
+  # Keep the saved value until the write has really landed: pmset can fail
+  # while the Mac is shutting down, and the next run must still restore it.
+  if [ "${DRY_RUN:-0}" != 1 ] && [ "$(lowpower_battery)" != "$b" ]; then
+    return
+  fi
   mv "$STATE" "$STATE.last"
-  log "Low Power Mode restored (battery $b, charger $c)"
+  log "Low Power Mode restored (battery $b)"
 }
 
 set_awake() {  # $1 = 1 to keep awake, 0 to allow normal sleep
