@@ -246,9 +246,9 @@ def serve(ip, port):
                 threading.Thread(target=run_mac, daemon=True).start()
                 self.send({"ok": True, "did": "started"})
             elif self.path.startswith("/off"):
-                only = "if=mac" in self.path
-                threading.Thread(target=run_off, args=(only,), daemon=True).start()
-                self.send({"ok": True, "did": "started"})
+                # Synchronous (a few seconds at most) so the caller learns whether it turned off.
+                run_off("if=mac" in self.path)
+                self.send(last["off"])
             else:
                 self.send({"error": "not found"}, 404)
 
