@@ -7,9 +7,10 @@ on its own:
   tv.py status            {"power": "active|standby|unreachable", "input": "mac|other|unknown", ...}
   tv.py mac               turn the TV on if needed and switch it to the Mac's HDMI input
   tv.py on                turn the TV on (Wake-on-LAN, then the API)
+  tv.py off               turn the TV off (standby); --if-mac: only while it shows the Mac
   tv.py input 2           switch to HDMI 2
   tv.py check             say whether the pre-shared key works
-  tv.py serve             local server for Hammerspoon on 127.0.0.1:47613 (GET /status, POST /mac)
+  tv.py serve             local server for Hammerspoon on 127.0.0.1:47613 (GET /status, POST /mac, POST /off[?if=mac])
 
 Why a server: macOS's Local Network privacy blocks Hammerspoon (and Homebrew's Python) from
 the TV, while a LaunchAgent running Apple's /usr/bin/python3 is allowed. install.sh runs
@@ -153,6 +154,20 @@ class TV:
                     pass
         return False, ("no answer after Wake-on-LAN" if sent else "TV unreachable")
 
+    def turn_off(self, only_if_mac=False):
+        """Standby. only_if_mac: leave it on unless it is showing the Mac's input."""
+        p = self.power()
+        if p != "active":
+            return True, f"already {p}"
+        if only_if_mac:
+            inp, how = self.current_input()
+            if inp != "mac":
+                return True, f"left on (showing {inp}, {how})"
+        if not self.key:
+            return False, "needs BRAVIA_PSK to turn off"
+        r = self.call("system", "setPowerStatus", [{"status": False}])
+        return (True, "turned off") if self.ok(r) else (False, f"refused: {r.get('error')}")
+
     def switch(self, port):
         if not self.key:
             return False, "needs BRAVIA_PSK to switch inputs"
@@ -198,6 +213,13 @@ def serve(ip, port):
                 last["busy"] = False
             print("mac:", json.dumps(last["result"]), flush=True)
 
+    def run_off(only_if_mac):
+        with lock:
+            before = time.strftime("%H:%M:%S")
+            ok, why = TV(ip, port).turn_off(only_if_mac)
+            last["off"] = {"ok": ok, "did": why, "at": before, "onlyIfMac": only_if_mac}
+            print("off:", json.dumps(last["off"]), flush=True)
+
     class H(BaseHTTPRequestHandler):
         def send(self, obj, code=200):
             b = json.dumps(obj).encode()
@@ -223,6 +245,10 @@ def serve(ip, port):
                     return self.send({"ok": True, "did": "already switching"})
                 threading.Thread(target=run_mac, daemon=True).start()
                 self.send({"ok": True, "did": "started"})
+            elif self.path.startswith("/off"):
+                only = "if=mac" in self.path
+                threading.Thread(target=run_off, args=(only,), daemon=True).start()
+                self.send({"ok": True, "did": "started"})
             else:
                 self.send({"error": "not found"}, 404)
 
@@ -247,8 +273,9 @@ def do_mac(tv):
 
 def main():
     ap = argparse.ArgumentParser(description="Control a Sony Bravia TV")
-    ap.add_argument("cmd", choices=["status", "mac", "on", "input", "check", "serve"])
+    ap.add_argument("cmd", choices=["status", "mac", "on", "off", "input", "check", "serve"])
     ap.add_argument("n", nargs="?", type=int)
+    ap.add_argument("--if-mac", action="store_true", help="off: only if the TV shows the Mac")
     ap.add_argument("--ip", default=os.environ.get("BRAVIA_IP", DEFAULT_IP))
     ap.add_argument("--port", type=int, default=int(os.environ.get("BRAVIA_MAC_PORT", DEFAULT_PORT)))
     a = ap.parse_args()
@@ -257,6 +284,9 @@ def main():
         out = tv.status()
     elif a.cmd == "on":
         ok, why = tv.turn_on()
+        out = {"ok": ok, "did": why}
+    elif a.cmd == "off":
+        ok, why = tv.turn_off(a.if_mac)
         out = {"ok": ok, "did": why}
     elif a.cmd == "input":
         if not a.n:
