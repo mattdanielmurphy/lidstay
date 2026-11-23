@@ -168,11 +168,48 @@ class TV:
         r = self.call("system", "setPowerStatus", [{"status": False}])
         return (True, "turned off") if self.ok(r) else (False, f"refused: {r.get('error')}")
 
+    def ircc(self, name):
+        """Press a remote button by name; codes come from the TV itself (getRemoteControllerInfo)."""
+        try:
+            codes = {c["name"]: c["value"] for c in self.call("system", "getRemoteControllerInfo")["result"][1]}
+        except (OSError, KeyError, IndexError, TypeError, ValueError):
+            return False
+        code = codes.get(name)
+        if not code:
+            return False
+        body = ('<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" '
+                's:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body>'
+                '<u:X_SendIRCC xmlns:u="urn:schemas-sony-com:service:IRCC:1">'
+                f'<IRCCCode>{code}</IRCCCode></u:X_SendIRCC></s:Body></s:Envelope>').encode()
+        req = urllib.request.Request(f"http://{self.ip}/sony/IRCC", data=body, headers={
+            "Content-Type": 'text/xml; charset=UTF-8',
+            "SOAPACTION": '"urn:schemas-sony-com:service:IRCC:1#X_SendIRCC"'})
+        if self.key:
+            req.add_header("X-Auth-PSK", self.key)
+        try:
+            with urllib.request.urlopen(req, timeout=2.5) as r:
+                return r.status == 200
+        except (OSError, urllib.error.HTTPError):
+            return False
+
     def switch(self, port):
         if not self.key:
             return False, "needs BRAVIA_PSK to switch inputs"
         r = self.call("avContent", "setPlayContent", [{"uri": f"extInput:hdmi?port={port}"}])
-        return (True, f"HDMI {port}") if self.ok(r) else (False, f"refused: {r.get('error')}")
+        if not self.ok(r):
+            return False, f"refused: {r.get('error')}"
+        # Seen 2026-11-23: with the TV's screensaver up on top of HDMI 3, setPlayContent says ok
+        # but nothing changes (the input is "already" HDMI 3). Pressing the remote's HDMI button does.
+        for _ in range(4):
+            time.sleep(0.5)
+            if self.current_input()[0] == "mac":
+                return True, f"HDMI {port}"
+        pressed = self.ircc(f"Hdmi{port}")
+        for _ in range(6):
+            time.sleep(0.5)
+            if self.current_input()[0] == "mac":
+                return True, f"HDMI {port} (remote button)"
+        return False, f"asked for HDMI {port}" + (", pressed HDMI button" if pressed else "") + ", still not showing it"
 
 
 CACHE = os.path.expanduser("~/.cache/lidstay-tv-mac")
